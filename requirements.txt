@@ -1,4 +1,3 @@
 streamlit==1.45.1
-queue
 dotenv
 streamlit_extras
