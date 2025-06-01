@@ -2,19 +2,12 @@ import streamlit as st
 import threading
 import time
 import queue
-import sys
 import os
 from dotenv import load_dotenv
+from streamlit_extras.stylable_container import stylable_container
 
 # 환경 변수 로딩
-# if getattr(sys, "frozen", False):
-#     current_path = sys._MEIPASS
-# else:
-#     current_path = os.path.dirname(os.path.abspath(__file__))
-
-# env_file_path = os.path.join(current_path, ".env")
-env_file_path = os.path.join(sys._MEIPASS, ".env") if getattr(sys, "forzen", False) else ".env"
-load_dotenv(env_file_path)
+load_dotenv()
 VERSION = os.getenv("VERSION", "1.0.0")
 AUTHOR = os.getenv("AUTHOR", "Unknown")
 
@@ -44,7 +37,6 @@ class WorkerThread(threading.Thread):
 def poll_progress():
     if st.session_state.worker is not None and st.session_state.worker.is_alive():
         try:
-            # 큐에서 모든 메시지 처리
             while True:
                 message = st.session_state.progress_queue.get_nowait()
                 st.session_state.status = message
@@ -62,23 +54,20 @@ def poll_progress():
                     st.session_state.cancel_disabled = True
                     st.session_state.worker = None
                     st.session_state.status = message
-                # UI 즉시 업데이트
-                status_placeholder.write(st.session_state.status)
+                status_placeholder.markdown(f"<div style='text-align: center;'>{st.session_state.status}</div>", unsafe_allow_html=True)
                 progress_placeholder.progress(st.session_state.progress)
         except queue.Empty:
             pass
-        # 스레드가 살아있으면 주기적으로 재실행
         if st.session_state.worker is not None and st.session_state.worker.is_alive():
-            time.sleep(0.1)  # 짧은 대기 후 재실행
+            time.sleep(0.1)
             st.rerun()
     else:
-        # 스레드가 종료되었으면 상태 초기화
         if st.session_state.worker is not None:
             st.session_state.worker.join()
             st.session_state.worker = None
             st.session_state.start_disabled = False
             st.session_state.cancel_disabled = True
-            status_placeholder.write(st.session_state.status)
+            status_placeholder.markdown(f"<div style='text-align: center;'>{st.session_state.status}</div>", unsafe_allow_html=True)
             progress_placeholder.progress(st.session_state.progress)
             st.rerun()
 
@@ -100,20 +89,59 @@ def main():
     if "progress_queue" not in st.session_state:
         st.session_state.progress_queue = queue.Queue()
 
-    # Status display
+    # Status display with center alignment
     global status_placeholder, progress_placeholder
     status_placeholder = st.empty()
-    status_placeholder.write(st.session_state.status)
+    status_placeholder.markdown(f"<div style='text-align: center;'>{st.session_state.status}</div>", unsafe_allow_html=True)
 
-    # Progress bar
-    progress_placeholder = st.progress(st.session_state.progress)
+    # Progress bar with center alignment
+    with st.container():
+        st.markdown("<div style='display: flex; justify-content: center; max-width: 500px; margin: 0 auto;'>", unsafe_allow_html=True)
+        progress_placeholder = st.progress(st.session_state.progress)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # Buttons
-    col1, col2 = st.columns(2)
-    with col1:
-        start_button = st.button("작업 시작", disabled=st.session_state.start_disabled)
-    with col2:
-        cancel_button = st.button("작업 취소", disabled=st.session_state.cancel_disabled)
+    # Buttons with center alignment, stacked vertically
+    with st.container():
+        st.markdown("<div style='text-align: center; max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px;'>", unsafe_allow_html=True)
+        with stylable_container(
+            key="start_button_container",
+            css_styles="""
+                button {
+                    background-color: #FFFFFF;
+                    color: #000000;
+                    border-radius: 5px;
+                    padding: 10px 20px;
+                    width: 150px;
+                    display: block;
+                    margin: 0 auto;
+                }
+                button:hover {
+                    background-color: #FFFFFF;
+                    color: #000000;
+                }
+            """
+        ):
+            start_button = st.button("작업 시작", disabled=st.session_state.start_disabled, key="start_button")
+        with stylable_container(
+            key="cancel_button_container",
+            css_styles="""
+                button {
+                    background-color: #FFFFFF;
+                    color: #000000;
+                    border-radius: 5px;
+                    padding: 10px 20px;
+                    width: 150px;
+                    display: block;
+                    margin: 0 auto;
+                }
+                button:hover {
+                    background-color: #FFFFFF;
+                    color: #000000;
+                }
+            """
+        ):
+            cancel_button = st.button("작업 취소", disabled=st.session_state.cancel_disabled, key="cancel_button")
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # Start button logic
     if start_button and st.session_state.worker is None:
@@ -121,10 +149,10 @@ def main():
         st.session_state.start_disabled = True
         st.session_state.cancel_disabled = False
         st.session_state.progress = 0
-        st.session_state.progress_queue = queue.Queue()  # 새 큐로 초기화
+        st.session_state.progress_queue = queue.Queue()
         st.session_state.worker = WorkerThread(st.session_state.progress_queue)
         st.session_state.worker.start()
-        status_placeholder.write(st.session_state.status)
+        status_placeholder.markdown(f"<div style='text-align: center;'>{st.session_state.status}</div>", unsafe_allow_html=True)
         progress_placeholder.progress(st.session_state.progress)
         st.rerun()
 
@@ -137,7 +165,7 @@ def main():
         st.session_state.cancel_disabled = True
         st.session_state.status = "작업이 취소되었습니다."
         st.session_state.progress = 0
-        status_placeholder.write(st.session_state.status)
+        status_placeholder.markdown(f"<div style='text-align: center;'>{st.session_state.status}</div>", unsafe_allow_html=True)
         progress_placeholder.progress(st.session_state.progress)
         st.rerun()
 
@@ -145,7 +173,7 @@ def main():
     poll_progress()
 
     # Footer
-    st.markdown("---")
+    st.markdown("<hr style='margin-top: 20px;'>", unsafe_allow_html=True)
     col3, col4 = st.columns(2)
     with col3:
         st.write(f"Ver. {VERSION}")
